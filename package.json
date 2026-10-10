@@ -1,17 +1,14 @@
 {
-  "name": "turkce-stremio-addon",
+  "name": "turkce-scraper-addon",
   "version": "1.0.0",
-  "description": "Ozel Turkce Dizi Film Scraper Eklentisi",
+  "description": "Stremio Turkce Scraper",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "axios": "^1.6.0",
+    "axios": "^1.6.8",
     "cheerio": "^1.0.0-rc.12",
-    "stremio-addon-sdk": "^1.6.1"
-  },
-  "engines": {
-    "node": ">=18.x"
+    "stremio-addon-sdk": "^1.6.10"
   }
 }
