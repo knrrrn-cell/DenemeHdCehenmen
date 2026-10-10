@@ -6,7 +6,7 @@ const builder = new addonBuilder({
     id: 'org.turkcescraper.addon',
     version: '1.0.0',
     name: 'Türkçe Dizi/Film Scraper',
-    description: 'HDFilmCehennemi Kaynak Çözücü',
+    description: 'HDFilmCehennemi Embed Çözücü',
     types: ['movie', 'series'],
     catalogs: [],
     resources: ['stream']
@@ -24,11 +24,9 @@ async function getMovieTitleFromImdb(imdbId) {
     return null;
 }
 
-// Film detay sayfasının kaynağını (view source) inceleyip video linkini bulan fonksiyon
-async function scrapeVideoFromMoviePage(movieTitle) {
+async function scrapeHdFilmCehennemi(movieTitle) {
     let streams = [];
     try {
-        // 1. Önce arama yapıp ilk filmin linkini bulalım
         const searchUrl = `https://www.hdfilmcehennemi.nl/arama?s=${encodeURIComponent(movieTitle)}`;
         const searchRes = await axios.get(searchUrl, {
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0 Safari/537.36' }
@@ -37,57 +35,54 @@ async function scrapeVideoFromMoviePage(movieTitle) {
         const $ = cheerio.load(searchRes.data);
         let filmLink = '';
 
-        // Arama sonuçlarındaki ilk film linkini alalım
         $('a').each((i, el) => {
             const href = $(el).attr('href');
             if (href && href.includes('/film/')) {
                 filmLink = href.startsWith('http') ? href : `https://www.hdfilmcehennemi.nl${href}`;
-                return false; // ilkini bul ve çık
+                return false;
             }
         });
 
         if (!filmLink) return streams;
 
-        // 2. Şimdi o filmin detay sayfasının kaynağına (View Source) giriyoruz!
         const detailRes = await axios.get(filmLink, {
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0 Safari/537.36' }
         });
 
         const $detail = cheerio.load(detailRes.data);
 
-        // Sayfa kaynağındaki iframe veya video kaynaklarını arıyoruz
-        $detail('iframe, video source').each((i, el) => {
-            const src = $detail(el).attr('src') \vert{}\vert{}$detail(el).attr('data-src');
-            if (src) {
+        // Kaynak kodunda gördüğümüz iframe (data-src veya src) etiketini yakalıyoruz
+        $detail('iframe').each((i, el) => {
+            const src = $detail(el).attr('data-src') \vert{}\vert{}$detail(el).attr('src');
+            if (src && (src.includes('embed') || src.includes('video'))) {
+                const embedUrl = src.startsWith('http') ? src : `https:${src}`;
                 streams.push({
-                    title: `🎬 HDFilmCehennemi | Gerçek Kaynak`,
-                    url: src.startsWith('http') ? src : `https:${src}`
+                    title: `🎬 HDFilmCehennemi | Türkçe Kaynak`,
+                    url: embedUrl
                 });
             }
         });
 
     } catch (error) {
-        console.log("Kaynak çözme hatası:", error.message);
+        console.log("Hata:", error.message);
     }
     return streams;
 }
 
 builder.defineStreamHandler(async function(args) {
     const { type, id } = args;
-    console.log(`İstek geldi -> Tip: ${type}, ID: ${id}`);
+    let movieName = "Esaretin Bedeli";
 
-    let movieName = "The Godfather";
     if (id.startsWith('tt')) {
         const resolved = await getMovieTitleFromImdb(id);
         if (resolved) movieName = resolved;
     }
 
-    let streams = await scrapeVideoFromMoviePage(movieName);
+    let streams = await scrapeHdFilmCehennemi(movieName);
 
-    // Eğer kaynak bulunamazsa test linki koyalım ki boş dönmesin
     if (streams.length === 0) {
         streams.push({
-            title: `⚠️ Kaynak Bulunamadı (${movieName}) - Sayfa Kaynağı Korunuyor`,
+            title: `⚠️ Kaynak Bulunamadı (${movieName})`,
             url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
         });
     }
