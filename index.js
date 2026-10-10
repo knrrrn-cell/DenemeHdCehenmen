@@ -1,6 +1,5 @@
 const { addonBuilder, serveHTTP } = require('stremio-addon-sdk');
 const axios = require('axios');
-const cheerio = require('cheerio');
 
 const builder = new addonBuilder({
     id: 'org.turkcescraper.addon',
@@ -34,12 +33,12 @@ builder.defineStreamHandler(async function(args) {
             if (resolved) movieName = resolved;
         }
 
-        // Şimdilik sistemin hatasız kalktığını görmek için kararlı test akışı dönüyoruz
+        // Apple'ın resmi HLS (m3u8) örnek yayın akışı - telefonlarda ve Stremio'da anında açılır
         return {
             streams: [
                 {
-                    title: `🎬 HDFilmCehennemi Çalışıyor | ${movieName} (1080p)`,
-                    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+                    title: `⚡ HIZLI AKIŞ TESTİ | ${movieName} (1080p)`,
+                    url: 'https://devimages-cdn.apple.com/samplecode/demovideo/merate/hls_playlist.m3u8'
                 }
             ]
         };
