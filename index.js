@@ -1,11 +1,12 @@
 const { addonBuilder, serveHTTP } = require('stremio-addon-sdk');
 const axios = require('axios');
+const cheerio = require('cheerio');
 
 const builder = new addonBuilder({
     id: 'org.turkcescraper.addon',
     version: '1.0.0',
     name: 'Türkçe Dizi/Film Scraper',
-    description: 'HDFilmCehennemi ve Yerli Kaynaklar',
+    description: 'HDFilmCehennemi Kaynak Çözücü',
     types: ['movie', 'series'],
     catalogs: [],
     resources: ['stream']
@@ -23,25 +24,75 @@ async function getMovieTitleFromImdb(imdbId) {
     return null;
 }
 
+// Film detay sayfasının kaynağını (view source) inceleyip video linkini bulan fonksiyon
+async function scrapeVideoFromMoviePage(movieTitle) {
+    let streams = [];
+    try {
+        // 1. Önce arama yapıp ilk filmin linkini bulalım
+        const searchUrl = `https://www.hdfilmcehennemi.nl/arama?s=${encodeURIComponent(movieTitle)}`;
+        const searchRes = await axios.get(searchUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0 Safari/537.36' }
+        });
+        
+        const $ = cheerio.load(searchRes.data);
+        let filmLink = '';
+
+        // Arama sonuçlarındaki ilk film linkini alalım
+        $('a').each((i, el) => {
+            const href = $(el).attr('href');
+            if (href && href.includes('/film/')) {
+                filmLink = href.startsWith('http') ? href : `https://www.hdfilmcehennemi.nl${href}`;
+                return false; // ilkini bul ve çık
+            }
+        });
+
+        if (!filmLink) return streams;
+
+        // 2. Şimdi o filmin detay sayfasının kaynağına (View Source) giriyoruz!
+        const detailRes = await axios.get(filmLink, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0 Safari/537.36' }
+        });
+
+        const $detail = cheerio.load(detailRes.data);
+
+        // Sayfa kaynağındaki iframe veya video kaynaklarını arıyoruz
+        $detail('iframe, video source').each((i, el) => {
+            const src = $detail(el).attr('src') \vert{}\vert{}$detail(el).attr('data-src');
+            if (src) {
+                streams.push({
+                    title: `🎬 HDFilmCehennemi | Gerçek Kaynak`,
+                    url: src.startsWith('http') ? src : `https:${src}`
+                });
+            }
+        });
+
+    } catch (error) {
+        console.log("Kaynak çözme hatası:", error.message);
+    }
+    return streams;
+}
+
 builder.defineStreamHandler(async function(args) {
     const { type, id } = args;
     console.log(`İstek geldi -> Tip: ${type}, ID: ${id}`);
 
-    let movieName = "Film";
+    let movieName = "The Godfather";
     if (id.startsWith('tt')) {
         const resolved = await getMovieTitleFromImdb(id);
         if (resolved) movieName = resolved;
     }
 
-    // Stremio'nun dahili oynatıcısının anında açtığı HLS/m3u8 veya stabil mp4 testi
-    return {
-        streams: [
-            {
-                title: `⚡ STABLE TEST | ${movieName} (1080p)`,
-                url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
-            }
-        ]
-    };
+    let streams = await scrapeVideoFromMoviePage(movieName);
+
+    // Eğer kaynak bulunamazsa test linki koyalım ki boş dönmesin
+    if (streams.length === 0) {
+        streams.push({
+            title: `⚠️ Kaynak Bulunamadı (${movieName}) - Sayfa Kaynağı Korunuyor`,
+            url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+        });
+    }
+
+    return { streams: streams };
 });
 
 const port = process.env.PORT || 7000;
