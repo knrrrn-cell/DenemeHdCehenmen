@@ -5,7 +5,7 @@ const builder = new addonBuilder({
     id: 'org.turkcescraper.addon',
     version: '1.0.0',
     name: 'Türkçe Dizi/Film Scraper',
-    description: 'HDFilmCehennemi API Tabanlı Eklenti',
+    description: 'HDFilmCehennemi ve Yerli Kaynaklar',
     types: ['movie', 'series'],
     catalogs: [],
     resources: ['stream']
@@ -18,67 +18,31 @@ async function getMovieTitleFromImdb(imdbId) {
             return response.data.meta.name;
         }
     } catch (e) {
-        console.log("IMDb isim çözme hatası:", e.message);
+        console.log("IMDb hatası:", e.message);
     }
     return null;
 }
 
-// Doğrudan API üzerinden arama yapma fonksiyonu
-async function searchHdFilmApi(movieTitle) {
-    let streams = [];
-    try {
-        // HDFilmCehennemi gibi sitelerin arama isteklerinde kullandığı header kalıpları
-        const searchApiUrl = `https://www.hdfilmcehennemi.nl/arama?s=${encodeURIComponent(movieTitle)}`;
-        
-        // Burada sitenin ajax/json isteği kabul edip etmediğini test ediyoruz
-        const response = await axios.get(searchApiUrl, {
-            headers: { 
-                'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36',
-                'X-Requested-With': 'XMLHttpRequest', // AJAX isteği olduğunu belirtir
-                'Accept': 'application/json, text/javascript, */*; q=0.01'
-            }
-        });
-
-        // Eğer site doğrudan JSON dönüyorsa veriyi işleriz, 
-        // dönmüyorsa alternatif API uç noktalarını ararız.
-        if (response.data && Array.isArray(response.data)) {
-            response.data.forEach(item => {
-                streams.push({
-                    title: `🎬 HDFilmCehennemi | ${item.title || movieTitle}`,
-                    url: `https://www.hdfilmcehennemi.nl/film/${item.slug}`
-                });
-            });
-        }
-    } catch (error) {
-        console.log("API Arama hatası:", error.message);
-    }
-    return streams;
-}
-
 builder.defineStreamHandler(async function(args) {
     const { type, id } = args;
-    console.log(`Stremio İstek -> Tip: ${type}, ID: ${id}`);
+    console.log(`İstek geldi -> Tip: ${type}, ID: ${id}`);
 
-    let searchName = "The Godfather"; 
-
+    let movieName = "Film";
     if (id.startsWith('tt')) {
-        const resolvedName = await getMovieTitleFromImdb(id);
-        if (resolvedName) {
-            searchName = resolvedName;
-        }
+        const resolved = await getMovieTitleFromImdb(id);
+        if (resolved) movieName = resolved;
     }
 
-    let results = await searchHdFilmApi(searchName);
-
-    if (results.length === 0) {
-        // Şimdilik API JSON dönmezse bile en azından arama linkini direkt oynatılabilir test formatında sunalım
-        results.push({
-            title: `🔗 HDFilmCehennemi'nde Ara: ${searchName}`,
-            url: `https://www.hdfilmcehennemi.nl/arama?s=${encodeURIComponent(searchName)}`
-        });
-    }
-
-    return { streams: results };
+    // Doğrudan çalışan örnek bir video testi yapalım ki yüklemede kalıp kalmadığını görelim
+    // Sitelerin video linklerini çözme kısmını buraya entegre edeceğiz
+    return {
+        streams: [
+            {
+                title: `🎬 Türkçe Kaynak | ${movieName} (1080p)`,
+                url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4'
+            }
+        ]
+    };
 });
 
 const port = process.env.PORT || 7000;
