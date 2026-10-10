@@ -33,13 +33,12 @@ builder.defineStreamHandler(async function(args) {
         if (resolved) movieName = resolved;
     }
 
-    // Doğrudan çalışan örnek bir video testi yapalım ki yüklemede kalıp kalmadığını görelim
-    // Sitelerin video linklerini çözme kısmını buraya entegre edeceğiz
+    // Stremio'nun dahili oynatıcısının anında açtığı HLS/m3u8 veya stabil mp4 testi
     return {
         streams: [
             {
-                title: `🎬 Türkçe Kaynak | ${movieName} (1080p)`,
-                url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4'
+                title: `⚡ STABLE TEST | ${movieName} (1080p)`,
+                url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
             }
         ]
     };
